@@ -84,9 +84,56 @@ class FST(FSA):
 		raise NotImplementedError
 
 	def top_compose(self, fst):
-		# Homework 3: Question 3
-		raise NotImplementedError
+    		# Homework 3: Question 3
+		
+		# the two machines need to be in the same semiring
+		assert self.R == fst.R
+		
+		#trim FTSs
+		_self = self.trim()
+		_fst = fst.trim()
+
+		# add initial states
+		composition = FST(R=self.R)
+
+		visited = set()
+		stack = [((q11, w1), (q21, w2)) for (q11, w1), (q21, w2)  in product(_self.I, _fst.I)]
+		
+		for ((q1, w1), (q2, w2)) in stack:
+			composition.add_I(PairState(q1, q2), _self.R.__mul__(w1, w2))
+		
+		self_finals = {q: w for q, w in _self.F}
+		fsa_finals = {q: w for q, w in _fst.F}
+	
+		while stack:
+			((q11,w_1), (q21, w_2)) = stack.pop()
+			
+			E_self=[(q11, ab1, q12, w1) for (ab1, q12, w1) in _self.arcs(q11)]
+			
+			E_fst=[(q21, ab2, q12, w2) for (ab2, q12, w2) in _fst.arcs(q21)]
+			
+			M = [((q11, ab1, q12, w1), (q21, ab2, q22, w2)) for (q11, ab1, q12, w1), (q21, ab2, q22, w2) in product(E_self, E_fst)]
+			
+			for ((q11, ab1, q12, w1), (q21, ab2, q22, w2)) in M:    
+
+				ab1 = self.split_input_output(ab1)
+				ab2 = self.split_input_output(ab2)
+				if ab1[1]==ab2[0]:
+					composition.add_arc(PairState(q11,q21), Sym(ab1[0]), Sym(ab2[1]), PairState(q12, q22), _self.R.__mul__(w1, w2))
+		
+				if ((q12, w_1), (q22,w_2)) not in visited:					
+					stack.append(((q12, w_1), (q22, w_2)))
+					visited.add(((q12, w_1), (q22, w_2)))
+					
+			# final state handling
+			if q11 in self_finals and q21 in fsa_finals:
+				composition.add_F(PairState(q11, q21), self.R.__mul__(self_finals[q11], fsa_finals[q21]))
+
+		return composition.trim()
 
 	def bottom_compose(self, fst):
 		# Homework 3: Question 3
-		raise NotImplementedError
+		return(fst.top_compose(self))	
+
+	def split_input_output(self, ab):
+		return ab.__str__()[ab.__str__().find('(')+1:ab.__str__().find(')')].split(', ')

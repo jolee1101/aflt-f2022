@@ -228,56 +228,231 @@ class FSA:
 	@property
 	def deterministic(self) -> bool:
 
-		# Homework 1: Question 2
-		raise NotImplementedError
+        # Homework 1: Question 2
+		#Deterministic, if i) no epsilon transition in the automation ii) the transition function != 0 for at most one element 
+				
+		for i, val in self.δ.items():
+			for a, val1 in val.items():
+			# i) no epsilon
+				if a == ε :
+					return False	
+			# ii) the transition function != 0 for at most one element 
+				if (len(list(val1.keys())))>1:
+					return False	
+		return True
 
 	@property
 	def pushed(self) -> bool:
-			
+	
 		# Homework 1: Question 2
-		raise NotImplementedError
+		for key,val in self.δ.items():
+			sum_transition_final = self.R.zero
+			if val:				
+				for key1, val1 in val.items():
+					#initializes the sum of transition function and the final state to zero.
+					for key2, val2 in val1.items():
+						#additive operation of transition function and the finial state for each q'.
+						sum_transition = self.R.__add__(val2, self.ρ[key])					
+					sum_transition_final = self.R.__add__(sum_transition_final,sum_transition)
+				
+				#the function returns false immediately as soon as the sum of 1 for any q is not fulfilled.
+				if sum_transition_final != self.R.one:
+					return False
+		return True
 
 	def reverse(self) -> FSA:
-		""" computes the reverse of the FSA """
+		
+		#generates a new FSA without any states
+		rev = FSA(R=self.R)
 
-		# Homework 1: Question 3
-		raise NotImplementedError
+		#we run through each state of the given FSA and add archs in a reversed order
+		for i, val in self.δ.items():
+			for a, val1 in val.items():
+					for j, w in val1.items():
+							rev.add_arc(j, a, i, w)
+		
+		#lastly, the finite and initial state are swapped.
+		for j, w in (self.F):
+			rev.set_I(j,w)
+		
+		for i,w in (self.I):
+			rev.set_F(i,w)
+		
+		return rev
 
 	def accessible(self) -> set:
 		""" computes the set of acessible states """
-
+	
+		#consider cases that are not adjacent
 		# Homework 1: Question 3
-		raise NotImplementedError
-
+		
+		reachable = set([])
+		
+		for i, val in (self.δ.items()):
+			for a, val1 in val.items():
+				for j, w in val1.items():
+					if i in self.λ and w != self.R.zero:						
+						reachable.add(i)
+					if i in reachable and w != self.R.zero:						
+						reachable.add(j)	
+							
+		return reachable
+						
 	def coaccessible(self) -> set:
 		""" computes the set of co-acessible states """
-
-		# Homework 1: Question 3
-		raise NotImplementedError
+		reachable = set([])
+		
+		#continues only when the initial weight is not zero.
+		for i, val in reversed(self.δ.items()):
+			for a, val1 in val.items():
+				for j, w in val1.items():
+					if i in self.ρ and w != self.R.zero:						
+						reachable.add(i)
+					if j in self.ρ and w != self.R.zero:						
+						reachable.add(j)	
+					if j in reachable:
+						reachable.add(i)	
+					
+		return reachable
 
 	def trim(self) -> FSA:
 		""" keeps only those states that are both accessible and co-accessible """
 
 		# Homework 1: Question 3
-		raise NotImplementedError
+		#generates a new FSA without any states
+		trimmed = FSA(R=self.R)
+
+		#initial state is added only if it is coaccessible.
+		for q, w in (self.I):
+			if q in self.coaccessible():
+				trimmed.add_I(q,w)
+
+		#final state is added only if it is accessible.
+		for q, w in (self.F):
+			if q in self.accessible():
+				trimmed.add_F(q,w)
+		
+		#we construct a new FSA that contains states that are accessible and coaccessible.
+		for i, val in self.δ.items():
+			for a, val1 in val.items():
+				for j, w in val1.items():
+					if i in self.λ and j in self.accessible() and j in self.coaccessible():
+						trimmed.add_arc(i, a, j, w)	
+					elif j in self.ρ and i in self.accessible():
+						trimmed.add_arc(i, a, j, w)
+					elif i in self.coaccessible() and i in self.accessible() and j in self.accessible() and j in self.coaccessible():
+						trimmed.add_arc(i, a, j, w)
+				
+		return trimmed
 
 	def union(self, fsa) -> FSA:
 		""" construct the union of the two FSAs """
 
 		# Homework 1: Question 4
-		raise NotImplementedError
+		
+		# the two machines need to be in the same semiring
+		assert self.R == fsa.R
+		
+		# add initial states
+		union_fsa = FSA(R=self.R)
+		
+		for q, w in self.I:
+			union_fsa.set_arc(State('0'), ε, PairState(State('0'), q), w)
+		
+		for q, w in fsa.I:
+			union_fsa.set_arc(State('0'), ε, PairState(State('1'), q), w)
+
+		for q1,val in self.δ.items():
+			for a, val1 in val.items():
+				for q2, w in val1.items():
+					union_fsa.set_arc(PairState(State('0'), q1),a,PairState(State('0'), q2), w)				
+
+		for q1,val in fsa.δ.items():
+			for a, val1 in val.items():
+				for q2, w in val1.items():
+					union_fsa.set_arc(PairState(State('1'), q1),a,PairState(State('1'), q2), w)				
+
+		union_fsa.add_I(State('0'), w=self.R.one)
+
+		for q, w in (self.F):
+			union_fsa.add_F(PairState(State('0'), q), w)
+
+		for q, w in (fsa.F):
+			union_fsa.add_F(PairState(State('1'), q), w)
+
+		return union_fsa
 
 	def concatenate(self, fsa) -> FSA:
 		""" construct the concatenation of the two FSAs """
 
 		# Homework 1: Question 4
-		raise NotImplementedError
+		
+		# the two machines need to be in the same semiring
+		assert self.R == fsa.R
+
+		#initialize FSA
+		concat_fsa = FSA(R=self.R)		
+		
+		#add initial states from self.FSA
+		for (q1, w1) in self.I:
+			concat_fsa.add_I(PairState(State('0'),q1), w1)
+
+		#add arcs of first FSA
+		for q1, val in self.δ.items():
+			for a, val1 in val.items():
+				for q2, w in val1.items():
+					concat_fsa.add_arc(PairState(State('0'),q1), a , PairState(State('0'), q2), w)
+		
+		#concatenate FSAs with ε
+		#final states of the first FSA is not added.
+		for q1, w1 in (self.F):
+			for q2, w2 in (fsa.I):
+				concat_fsa.add_arc(PairState(State('0'), q1), ε, PairState(State('1'), q2), w=w1*w2)
+
+		#add arcs of second FSA
+		#initial states of the second FSA are not added
+		for q1, val in fsa.δ.items():
+			for a, val1 in val.items():
+				for q2, w in val1.items():
+					concat_fsa.add_arc(PairState(State('1'), q1), a, PairState(State('1'), q2), w)
+
+		#final states of the second FSA.
+		for q, w in (fsa.F):
+			concat_fsa.add_F(PairState(State('1'),q), w)
+
+		return concat_fsa
 
 	def kleene_closure(self) -> FSA:
 		""" compute the Kleene closure of the FSA """
 
 		# Homework 1: Question 4
-		raise NotImplementedError
+		
+		#initialize FSA
+		kleene = FSA(R=self.R)
+
+		for q, w in (self.I):
+			kleene.add_arc(PairState(State('0'), State('0')), ε, q, w)
+			
+		#add arcs of FSA
+		for q1, val in self.δ.items():
+			for a, val1 in val.items():
+				for q2, w in val1.items():
+					kleene.add_arc(q1, a , q2, w)
+		
+		kleene.add_I(PairState(State('0'), State('0')), self.R.one)
+
+		for q, w in (self.F):
+			kleene.add_arc(q, ε, PairState(State('1'), State('1')), w)
+
+		for q1, w1 in (self.I):
+			for q, w in (self.F):
+				kleene.add_arc(q, ε, q1 , self.R.one)
+
+		kleene.add_F(PairState(State('1'), State('1')), self.R.one)	
+
+		kleene.add_arc(PairState(State('1'),State('1')), ε, PairState(State('0'), State('0')), self.R.one)
+
+		return kleene
 
 	def pathsum(self, strategy=Strategy.LEHMANN):
 		if self.acyclic:
@@ -285,16 +460,82 @@ class FSA:
 		pathsum = Pathsum(self)
 		return pathsum.pathsum(strategy)
 
-	def edge_marginals(self) -> "dd[dd[dd[Semiring]]]":
+	def edge_marginals(self) -> dd[dd[dd[Semiring]]]:
 		""" computes the edge marginals μ(q→q') """
 
 		# Homework 2: Question 2
-		raise NotImplementedError
-
+		
+		assert self.acyclic
+		
+		#marginals is a dictionary that maps all edges to its marginal.
+		marginals = dd(lambda : dd(lambda : self.R.zero))
+		
+		bwd_sum = Pathsum(self).backward(strategy=Strategy.VITERBI)
+		fwd_sum = Pathsum(self).forward(strategy=Strategy.VITERBI)
+		
+		pathsum = self.R.zero
+		for i,wi in self.I:
+			for f,wf in self.F:
+				for p in self.Q:
+					for a, q, w in self.arcs(p):
+						marginals[p][q]=self.R.__mul__(self.R.__mul__(self.R.__mul__(self.R.__mul__(fwd_sum[p], wi), w), wf), bwd_sum[q])
+		
+		return marginals
 
 	def coaccessible_intersection(self, fsa) -> FSA:
 		# Homework 2: Question 3
-		raise NotImplementedError
+		
+		assert self.R == fsa.R		
+
+		product_fsa = FSA(R=self.R)
+
+		# add final states
+		product_fsa = FSA(R=self.R)
+		for (q1, w1), (q2, w2) in product(self.F, fsa.F):
+			product_fsa.add_F(PairState(q1, q2), w=w1 * w2)
+		
+		self_finals = {q: w for q, w in self.F}
+		fsa_finals = {q: w for q, w in fsa.F}
+
+		visited = set([(i1, i2, State('0')) for i1, i2 in product(self_finals, fsa_finals)])
+		stack = [(i1, i2, State('0')) for i1, i2 in product(self_finals, fsa_finals)]
+
+		self_initials = {q: w for q, w in self.I}
+	
+		fsa_initials = {q: w for q, w in fsa.I}
+	
+		while stack:
+			q1, q2, qf = stack.pop()
+		
+			E1 = [] 			
+			for i, val11 in reversed(self.δ.items()):
+				for a, val12 in val11.items():
+					if q1 in val12.keys():
+						E1.append((i, a, val12[q1]))
+			
+			E2 = [] 			
+			for i, val11 in reversed(fsa.δ.items()):
+				for a, val12 in val11.items():
+					if q2 in val12.keys():
+						E2.append((i, a, val12[q2]))
+			
+			M = [((i1, a1, w1), (i2, a2, w2))
+				 for (i1, a1, w1), (i2, a2, w2) in product(E1, E2)
+				 if epsilon_filter(a1, a2, qf) != State('⊥')]
+		
+			for (i1, a1, w1), (i2, a2, w2) in M:    
+				product_fsa.set_arc(PairState(i1, i2), a1,PairState(q1, q2), w=w1*w2)
+				
+				_qf = epsilon_filter(a1, a2, qf)
+				if (i1, i2, _qf) not in visited:					
+					stack.append((i1, i2, _qf))
+					visited.add((i1, i2, _qf))
+
+			# initial state handling
+			if q1 in self_initials and q2 in fsa_initials:
+				product_fsa.add_I(PairState(q1, q2), w=self_initials[q1] * fsa_initials[q2])
+
+		return product_fsa
 
 	def intersect(self, fsa):
 		"""
