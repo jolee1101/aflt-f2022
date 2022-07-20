@@ -1,5 +1,6 @@
 import itertools as it
 from itertools import chain, combinations
+from collections import defaultdict as dd
 
 from rayuela.base.semiring import Boolean, Real, Derivation
 from rayuela.base.symbol import Sym, ε
@@ -97,9 +98,31 @@ class Transformer:
         # Assignment 6
         raise NotImplementedError
 
+    def treesumNonterminal(self, ) -> int:
+        
+        return 1
+    
     def nullaryremove(self, cfg) -> CFG:
-        # Assignment 6
-        raise NotImplementedError
+        # Assignment 6 Question 3
+        eps_cfg = cfg.copy()
+       
+        for p, w in cfg.P:
+            for i in p.body:
+                if i in cfg.V and p.head != cfg.S:
+                    eps_cfg._P.pop(p,w)
+        
+        ntsum = dd(lambda: cfg.R.zero)
+        
+        for nt in eps_cfg.V:
+            ntsum[nt] = Treesum(eps_cfg).table(strategy="forwardchain")[nt]
+        
+        thirdcfg = CFG(cfg.R)
+        
+        #cfg_exp.add(Real(2), S, NT("NP"), NT("VP"))
+        
+        for p in cfg.V:
+            thirdcfg.add(p)
+        return eps_cfg    
 
     def separate_terminals(self, cfg) -> CFG:
         # Assignment 7
